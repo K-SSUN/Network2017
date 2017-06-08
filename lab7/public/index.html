@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+        #red{
+            background-color: red; border: 4px solid red; color:red;
+        }
+        #green{
+            background-color: green; border: 4px solid green; color:green;
+        }
+        #blue{
+            background-color: blue; border: 4px solid blue; color:blue;
+        }
+        #orange{
+            background-color: orange; border: 4px solid orange; color:orange;
+        }
+    </style>
+    <script src="jquery-3.1.0.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+    var socket;
+        $(document).ready(function () {
+            // 변수 선언
+            var color = 'black';
+            var width = 1;
+            var isDown = false;
+            var newPoint, oldPoint;
+            // 소켓 연결
+            socket = io.connect();
+            // 캔버스 추출
+            var canvas = document.getElementById('canvas');
+            var context = canvas.getContext('2d');
+            // 마우스 이벤트 연결
+            $(canvas).mousedown(function (event) {
+                isDown = true;
+                oldPoint = {
+                    x: event.pageX - $(this).position().left,
+                    y: event.pageY - $(this).position().top
+                };
+            });
+            $(canvas).mousemove(function (event) {
+                if (!isDown) { return; }
+                newPoint = {
+                    x: event.pageX - $(this).position().left,
+                    y: event.pageY - $(this).position().top
+                };
+                socket.emit('line', {
+                    x1: oldPoint.x,
+                    y1: oldPoint.y,
+                    x2: newPoint.x,
+                    y2: newPoint.y,
+                    color: color,
+                    width: width
+                });
+                oldPoint = newPoint;
+            });
+            $(canvas).mouseup(function (event) {
+                isDown = false;
+                oldPoint = {
+                    x: event.pageX - $(this).position().left,
+                    y: event.pageY - $(this).position().top
+                };
+            });
+            // 입력 양식 이벤트 연결
+            $('#pen').click(function () {
+                width = 1;
+                color = 'black';
+                $('#width').val(width);
+            });
+            $('#eraser').click(function () {
+                width = 10;
+                color = 'white';
+                $('#width').val(width);
+            });
+            $('#width').change(function () {
+                width = $(this).val()
+            });
+
+            // Pen color change
+            $('.btn').click(function(){
+                var setcolor = $(this).attr('value');
+                color = setcolor;
+            });
+
+            // Clear All
+            $('#clearCanvas').click(function(){
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                socket.emit('clearAll', {});
+            });
+
+            // 소켓 이벤트 연결
+            socket.on('line', function (data) {
+                context.beginPath();
+                context.lineWidth = data.width;
+                context.strokeStyle = data.color;
+                context.moveTo(data.x1, data.y1);
+                context.lineTo(data.x2, data.y2);
+                context.stroke();
+            });
+
+            socket.on('chat', function (data) {
+                document.getElementById("showChat").value += "\n" + data;
+            });
+
+            socket.on('clearAll', fu nction (data) {
+                context.clearRect(0, 0, canvas.width, canvas.height);
+            });
+
+        });
+
+        function sendmessage(msg){
+          //document.getElementById("sendMsg").value = "";
+          $("#sendMsg").val("");
+          socket.emit('chat', document.getElementById("chatId").value + " >>  " + msg);
+        }
+
+    </script>
+</head>
+<body>
+    <canvas id="canvas" width="800" height="600" style="float:left; margin-right: 30px;"></canvas>
+
+    <div style="margin-right: 30px;"><p>ID</p><input id="chatId" type="text" size=15 /></div>
+    <div><p>MESSAGE</p><input id="sendMsg" type="text" size=48 onchange="sendmessage(this.value);" /></div>
+    <br/>
+    <div><textarea id="showChat" rows="20" cols="50"> </textarea></div>
+
+    <div style="margin-top: 50px;">
+        <button id="pen">펜</button>
+        
+        <button id="red" class="btn" value="red">COLOR</button>
+        <button id="green" class="btn" value="green">COLOR</button>
+        <button id="blue" class="btn" value="blue">COLOR</button>
+        <button id="orange" class="btn" value="orange">COLOR</button>
+
+        <button id="eraser">지우개</button>
+        <button id="clearCanvas">CLEAR ALL</button>
+    </div>
+        <input id="width" type="range" min="1" max="10" value="1" style="margin-top: 10px" />
+    
+</body>
+</html>
